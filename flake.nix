@@ -21,7 +21,7 @@
           formatter = pkgs.alejandra;
         };
         flake = {
-          nixosModules.default = import ./nixos/default.nix {};
+          nixosModules.default = import ./nixos/default.nix;
         };
       }
     );
