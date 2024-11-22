@@ -53,7 +53,7 @@ in {
     scriptBaseName = lib.mkOption {
       description = "Name of the safety-check program that will be written to the root of the NixOS closure.";
       type = lib.types.str;
-      default = "pre-acivate-safety-checks";
+      default = "pre-activate-safety-checks";
     };
 
     stockChecks.enable = lib.mkOption {
