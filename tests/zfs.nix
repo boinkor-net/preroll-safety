@@ -60,10 +60,10 @@ nixos-lib.runTest {
     machine.start()
     machine.wait_for_unit("multi-user.target")
     with subtest("Filesystems at boot are ok"):
-        machine.succeed("/run/current-system/pre-acivate-safety-checks")
+        machine.succeed("/run/current-system/pre-activate-safety-checks")
     with subtest("Removing a filesystem causes the check to fail"):
         machine.succeed("umount /ephemeral")
         machine.succeed("${pkgs.zfs}/bin/zfs destroy test/ephemeral")
-        machine.fail("/run/current-system/pre-acivate-safety-checks")
+        machine.fail("/run/current-system/pre-activate-safety-checks")
   '';
 }

@@ -61,11 +61,11 @@ nixos-lib.runTest {
     machine.succeed("udevadm settle")
     machine.wait_for_unit("multi-user.target")
     with subtest("Filesystems at boot are ok"):
-        machine.succeed("/run/current-system/pre-acivate-safety-checks")
+        machine.succeed("/run/current-system/pre-activate-safety-checks")
     with subtest("Removing a filesystem causes the check to fail"):
         machine.succeed("umount /dev/disk/by-label/ephemeral")
         machine.succeed("${pkgs.parted}/bin/parted --script /dev/vda rm 2")
         machine.succeed("udevadm settle")
-        machine.fail("/run/current-system/pre-acivate-safety-checks")
+        machine.fail("/run/current-system/pre-activate-safety-checks")
   '';
 }

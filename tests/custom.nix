@@ -40,9 +40,9 @@ nixos-lib.runTest {
     machine.succeed("udevadm settle")
     machine.wait_for_unit("multi-user.target")
     with subtest("Custom check is ok"):
-        machine.succeed("/run/current-system/pre-acivate-safety-checks")
+        machine.succeed("/run/current-system/pre-activate-safety-checks")
     with subtest("Custom check can be made to fail"):
         machine.succeed("touch /run/custom-check-failure")
-        machine.fail("/run/current-system/pre-acivate-safety-checks")
+        machine.fail("/run/current-system/pre-activate-safety-checks")
   '';
 }
