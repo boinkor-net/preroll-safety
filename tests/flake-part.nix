@@ -27,6 +27,7 @@
         };
       in
         lib.mkMerge [
+          (importTests "custom")
           (importTests "filesystems")
           (importTests "zfs")
         ];

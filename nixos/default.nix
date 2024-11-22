@@ -81,7 +81,7 @@ in {
           # about single-quoted arguments (yes, it's silly).
           ":"
         else
-          pkgs.writeShellApplication {
+          lib.getExe (pkgs.writeShellApplication {
             name = "check-${validation}";
             text = ''
               declare -i failed=0
@@ -95,7 +95,7 @@ in {
                 exit 1
               fi
             '';
-          };
+          });
 
       writeOneCheckScript = validation: {
         enable,
@@ -108,7 +108,7 @@ in {
           echo ":: Running preroll-safety check ${validation}..."
           check__${validation}() {
             set -eu
-            ${lib.getExe (runnableCheck validation check)}
+            ${runnableCheck validation check}
           }
           if ! check__${validation} ; then
             echo ${lib.escapeShellArg failureMessage} >&2

@@ -6,7 +6,6 @@
 nixos-lib.runTest {
   name = "zfs";
   hostPkgs = pkgs;
-  node.pkgsReadOnly = false;
   nodes.machine = {
     pkgs,
     lib,

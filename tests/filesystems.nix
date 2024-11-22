@@ -6,7 +6,6 @@
 nixos-lib.runTest {
   name = "filesystems";
   hostPkgs = pkgs;
-  node.pkgsReadOnly = false;
   nodes.machine = {
     pkgs,
     lib,
