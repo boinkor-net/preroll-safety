@@ -5,7 +5,7 @@
   ...
 }: {
   preroll-safety.checks.filesystems = {
-    enable = config.preroll-safety.stockChecks.enable;
+    enable = lib.mkDefault config.preroll-safety.stockChecks.enable;
 
     failureMessage = "Contents of fileSystems would result in a system that will enter emergency mode.";
 
