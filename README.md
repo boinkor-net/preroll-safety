@@ -10,9 +10,9 @@ The NixOS module in this repo is meant to help you avoid those situations!
 
 Since a nixos system configuration possibly gets "built" somewhere other than the machine it runs on (and even if it's built on the same machine, it's in a sandbox), we can not rely on the build process to find all the issues.
 
-Instead, this module writes an additional script into the system config closure's "out" directory, which just sits there most times (it's named `pre-activate-safety-checks` by default). This script does nothing, and is ignored by `nixos-rebuild`.
+Instead, this module writes an additional script into the system config closure's "out" directory, which just sits there most times (it's named `pre-activate-safety-checks` by default). This script is ignored and not used at all by `nixos-rebuild`, however.
 
-However! If you're using a safety-aware deploy tool (e.g. [deploy-flake](https://github.com/boinkor-net/deploy-flake) by the author), you can instruct it to run the safety check program before activating your system; if that exits with a non-0 status, your tool knows that the system configuration isn't safe to apply and can exit before your machine drops off the network.
+But! If you're using a safety-aware deploy tool (e.g. [deploy-flake](https://github.com/boinkor-net/deploy-flake) by the author), you can instruct it to run the safety check program before activating your system; if that exits with a non-0 status, your tool knows that the system configuration isn't safe to apply and can exit before your machine drops off the network.
 
 ## Using it
 
@@ -37,4 +37,4 @@ However! If you're using a safety-aware deploy tool (e.g. [deploy-flake](https:/
    preroll-safety.enable = true;
    ```
 
-The repo comes with a few [pre-defined checks](./nixos/checks). You can define your own, too. See those checks for examples!
+The repo comes with a few [pre-defined checks](./nixos/safety-checks). You can define your own, too. See those checks for examples! There are some nixos-vm based [tests](./tests) also.
