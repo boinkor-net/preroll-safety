@@ -19,29 +19,16 @@
       if ! pkgs.lib.hasSuffix "linux" system
       then {}
       else let
-        writeTestFlakeWithConfig = config:
-          pkgs.writeText "flake.nix" ''
-            {pkgs, lib, config, ...}: {
-              imports = [
-                ./hardware-configuration.nix
-                <nixpkgs/nixos/modules/testing/test-instrumentation.nix>
-                ./preroll-safety/nixos/default.nix
-              ];
-
-              config = ${config};
-            }
-          '';
-
         importTests = name: {
           "${name}" = import ./${name}.nix {
-            inherit pkgs nixos-lib writeTestFlakeWithConfig;
+            inherit pkgs nixos-lib;
             nixosModule = self.nixosModules.default;
-            flake-inputs = inputs;
           };
         };
       in
         lib.mkMerge [
           (importTests "filesystems")
+          (importTests "zfs")
         ];
   };
 }

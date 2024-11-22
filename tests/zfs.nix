@@ -4,7 +4,7 @@
   nixosModule,
 }:
 nixos-lib.runTest {
-  name = "filesystems";
+  name = "zfs";
   hostPkgs = pkgs;
   node.pkgsReadOnly = false;
   nodes.machine = {
@@ -16,39 +16,39 @@ nixos-lib.runTest {
       nixosModule
     ];
     config = {
+      networking.hostId = "deadbea7";
       virtualisation.useDefaultFilesystems = false;
       virtualisation.rootDevice = "/dev/vda1";
 
       boot.initrd.postDeviceCommands = ''
         if ! test -b /dev/vda1; then
           ${pkgs.parted}/bin/parted --script /dev/vda -- mklabel msdos
-          ${pkgs.parted}/bin/parted --script /dev/vda -- mkpart primary 1MiB -250MiB
-          ${pkgs.parted}/bin/parted --script /dev/vda -- mkpart primary -250MiB 100%
+          ${pkgs.parted}/bin/parted --script /dev/vda -- mkpart primary 1MiB 100%
           sync
         fi
 
-        FSTYPE=$(blkid -o value -s TYPE /dev/vda1 || true)
-        if test -z "$FSTYPE"; then
-          ${pkgs.e2fsprogs}/bin/mke2fs -t ext4 -L root /dev/vda1
-          ${pkgs.e2fsprogs}/bin/mke2fs -t ext4 -L ephemeral /dev/vda2
+        if ! ${pkgs.zfs}/bin/zpool list test >/dev/null; then
+          ${pkgs.zfs}/bin/zpool create test /dev/vda1
+          ${pkgs.zfs}/bin/zfs create -o mountpoint=legacy -o canmount=on test/root
+          ${pkgs.zfs}/bin/zfs create -o mountpoint=legacy -o canmount=on test/ephemeral
         fi
       '';
       virtualisation.fileSystems = {
         "/ephemeral" = {
           # our test partition
-          device = "/dev/disk/by-label/ephemeral";
-          fsType = "ext4";
+          device = "test/ephemeral";
+          fsType = "zfs";
         };
 
         "/" = {
-          device = "/dev/disk/by-label/root";
-          fsType = "ext4";
+          device = "test/root";
+          fsType = "zfs";
         };
       };
 
       preroll-safety.enable = true;
       preroll-safety.stockChecks.enable = false;
-      preroll-safety.checks.filesystems.enable = true;
+      preroll-safety.checks.zfs.enable = true;
 
       virtualisation = {
         cores = 2;
@@ -59,14 +59,12 @@ nixos-lib.runTest {
 
   testScript = ''
     machine.start()
-    machine.succeed("udevadm settle")
     machine.wait_for_unit("multi-user.target")
     with subtest("Filesystems at boot are ok"):
         machine.succeed("/run/current-system/pre-acivate-safety-checks")
     with subtest("Removing a filesystem causes the check to fail"):
-        machine.succeed("umount /dev/disk/by-label/ephemeral")
-        machine.succeed("${pkgs.parted}/bin/parted --script /dev/vda rm 2")
-        machine.succeed("udevadm settle")
+        machine.succeed("umount /ephemeral")
+        machine.succeed("${pkgs.zfs}/bin/zfs destroy test/ephemeral")
         machine.fail("/run/current-system/pre-acivate-safety-checks")
   '';
 }
