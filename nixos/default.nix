@@ -6,19 +6,20 @@
 }: let
   cfg = config.preroll-safety;
 in {
+  imports = [
+    ./safety-checks
+  ];
+
   options.preroll-safety = let
-    singleCheckSubmodule.options.program = lib.mkOption {
-      description = "Path to a program to invoke";
-    };
-    multiCheckSubmodule.options.forEach = {
-      items = lib.mkOption {
-        description = "Items over which to run the check code";
-        type = lib.types.listOf lib.types.anything;
+    checkProgramSubmodule.options = {
+      program = lib.mkOption {
+        description = "Path to a program to invoke. If `items` is set, that program will be invoked with each item as $1.";
       };
 
-      program = lib.mkOption {
-        description = "Program that gets run with each item in `items` as the first argument.";
-        type = lib.types.path;
+      items = lib.mkOption {
+        description = "Items over which to run the check code";
+        type = lib.types.nullOr (lib.types.listOf lib.types.anything);
+        default = null;
       };
     };
 
@@ -31,10 +32,7 @@ in {
 
       check = lib.mkOption {
         description = "Program that will be invoked to perform the check";
-        type = lib.types.oneOf [
-          (lib.types.submodule singleCheckSubmodule)
-          (lib.types.submodule multiCheckSubmodule)
-        ];
+        type = lib.types.submodule checkProgramSubmodule;
       };
 
       failureMessage = lib.mkOption {
@@ -58,6 +56,12 @@ in {
       default = "pre-acivate-safety-checks";
     };
 
+    stockChecks.enable = lib.mkOption {
+      description = "Whether to enable the checks in this flake by default.";
+      default = true;
+      type = lib.types.bool;
+    };
+
     checks = lib.mkOption {
       type = lib.types.attrsOf (lib.types.submodule checkSubmodule);
     };
@@ -66,20 +70,24 @@ in {
   config = lib.mkIf cfg.enable (
     let
       runnableCheck = validation: {
-        program ? null,
-        forEach ? null,
+        program,
+        items,
       }:
-        if program != null
+        if items == null
         then program
-        else if forEach.items == []
-        then ":"
+        else if items == []
+        then
+          # This auto-succeeds & is special-cased so shellcheck doesn't complain
+          # about single-quoted arguments (yes, it's silly).
+          ":"
         else
-          pkgs.writeShellProgram {
+          pkgs.writeShellApplication {
             name = "check-${validation}";
             text = ''
               declare -i failed=0
-              for item in ${lib.escapeShellArgs forEach.items} ; do
-                if ! ${forEach.program} "$item"; then
+              # shellcheck disable=SC2043
+              for item in ${lib.escapeShellArgs items} ; do
+                if ! ${program} "$item"; then
                   failed=$((failed+1))
                 fi
               done
@@ -100,7 +108,7 @@ in {
           echo ":: Running preroll-safety check ${validation}..."
           check__${validation}() {
             set -eu
-            ${runnableCheck validation check}
+            ${lib.getExe (runnableCheck validation check)}
           }
           if ! check__${validation} ; then
             echo ${lib.escapeShellArg failureMessage} >&2

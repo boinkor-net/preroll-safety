@@ -10,6 +10,7 @@
     flake-parts.lib.mkFlake {inherit inputs;} (
       {...}: {
         imports = [
+          ./tests/flake-part.nix
         ];
         systems = [
           "x86_64-linux"
