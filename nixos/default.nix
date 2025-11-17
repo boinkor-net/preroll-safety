@@ -50,6 +50,15 @@ in {
   in {
     enable = lib.mkEnableOption "writing the pre-roll safety check script";
 
+    systemBuilderCommandAttribute = lib.mkOption {
+      description = "(internal) attribute on `system` to use for generating the preroll-check script. In pre-25.11 nixos, this should be set to `extraSystemBuilderCmds`, later versions should use the default of `systemBuilderCommands`.";
+      default = "systemBuilderCommands";
+      type = lib.types.enum [
+        "systemBuilderCmds"
+        "systemBuilderCommands"
+      ];
+    };
+
     scriptBaseName = lib.mkOption {
       description = "Name of the safety-check program that will be written to the root of the NixOS closure.";
       type = lib.types.str;
@@ -81,21 +90,23 @@ in {
           # about single-quoted arguments (yes, it's silly).
           ":"
         else
-          lib.getExe (pkgs.writeShellApplication {
-            name = "check-${validation}";
-            text = ''
-              declare -i failed=0
-              # shellcheck disable=SC2043
-              for item in ${lib.escapeShellArgs items} ; do
-                if ! ${program} "$item"; then
-                  failed=$((failed+1))
+          lib.getExe (
+            pkgs.writeShellApplication {
+              name = "check-${validation}";
+              text = ''
+                declare -i failed=0
+                # shellcheck disable=SC2043
+                for item in ${lib.escapeShellArgs items} ; do
+                  if ! ${program} "$item"; then
+                    failed=$((failed+1))
+                  fi
+                done
+                if [ $failed != 0 ]; then
+                  exit 1
                 fi
-              done
-              if [ $failed != 0 ]; then
-                exit 1
-              fi
-            '';
-          });
+              '';
+            }
+          );
 
       writeOneCheckScript = validation: {
         enable,
@@ -135,7 +146,7 @@ in {
         '';
       };
     in {
-      system.extraSystemBuilderCmds = ''
+      system.${cfg.systemBuilderCommandAttribute} = ''
         echo ":: Writing preroll-safety check program ${cfg.scriptBaseName}"
         ln -sf ${lib.getExe checkScript} $out/${cfg.scriptBaseName}
       '';
