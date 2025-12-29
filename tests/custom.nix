@@ -15,17 +15,19 @@ nixos-lib.runTest {
       nixosModule
     ];
     config = {
-      preroll-safety.enable = true;
+      preroll-safety.systemClosureScript.enable = true;
       preroll-safety.stockChecks.enable = false;
       preroll-safety.checks.custom = {
         failureMessage = "Custom check failed";
         successMessage = "Custom check succeeded";
-        check.program = lib.getExe (pkgs.writeShellApplication {
-          name = "custom-check";
-          text = ''
-            [ ! -f /run/custom-check-failure ]
-          '';
-        });
+        check.program = lib.getExe (
+          pkgs.writeShellApplication {
+            name = "custom-check";
+            text = ''
+              [ ! -f /run/custom-check-failure ]
+            '';
+          }
+        );
       };
 
       virtualisation = {

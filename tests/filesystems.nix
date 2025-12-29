@@ -45,7 +45,7 @@ nixos-lib.runTest {
         };
       };
 
-      preroll-safety.enable = true;
+      preroll-safety.systemClosureScript.enable = true;
       preroll-safety.stockChecks.enable = false;
       preroll-safety.checks.filesystems.enable = true;
 

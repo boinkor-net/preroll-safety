@@ -48,21 +48,33 @@ in {
       };
     };
   in {
-    enable = lib.mkEnableOption "writing the pre-roll safety check script";
+    preSwitchChecks = {
+      enable = lib.mkEnableOption "adding the preroll safety checks to system.preSwitchChecks";
 
-    systemBuilderCommandAttribute = lib.mkOption {
-      description = "(internal) attribute on `system` to use for generating the preroll-check script. In pre-25.11 nixos, this should be set to `extraSystemBuilderCmds`, later versions should use the default of `systemBuilderCommands`.";
-      default = "systemBuilderCommands";
-      type = lib.types.enum [
-        "systemBuilderCmds"
-        "systemBuilderCommands"
-      ];
+      attrName = lib.mkOption {
+        description = "Name of the system.preSwitchChecks attribute";
+        default = "preroll-safety";
+        type = lib.types.str;
+      };
     };
 
-    scriptBaseName = lib.mkOption {
-      description = "Name of the safety-check program that will be written to the root of the NixOS closure.";
-      type = lib.types.str;
-      default = "pre-activate-safety-checks";
+    systemClosureScript = {
+      enable = lib.mkEnableOption "writing the pre-roll safety check script";
+
+      systemBuilderCommandAttribute = lib.mkOption {
+        description = "(internal) attribute on `system` to use for generating the preroll-check script. In pre-25.11 nixos, this should be set to `extraSystemBuilderCmds`, later versions should use the default of `systemBuilderCommands`.";
+        default = "systemBuilderCommands";
+        type = lib.types.enum [
+          "systemBuilderCmds"
+          "systemBuilderCommands"
+        ];
+      };
+
+      scriptBaseName = lib.mkOption {
+        description = "Name of the safety-check program that will be written to the root of the NixOS closure.";
+        type = lib.types.str;
+        default = "pre-activate-safety-checks";
+      };
     };
 
     stockChecks.enable = lib.mkOption {
@@ -76,80 +88,88 @@ in {
     };
   };
 
-  config = lib.mkIf cfg.enable (
-    let
-      runnableCheck = validation: {
-        program,
-        items,
-      }:
-        if items == null
-        then program
-        else if items == []
-        then
-          # This auto-succeeds & is special-cased so shellcheck doesn't complain
-          # about single-quoted arguments (yes, it's silly).
-          ":"
-        else
-          lib.getExe (
-            pkgs.writeShellApplication {
-              name = "check-${validation}";
-              text = ''
-                declare -i failed=0
-                # shellcheck disable=SC2043
-                for item in ${lib.escapeShellArgs items} ; do
-                  if ! ${program} "$item"; then
-                    failed=$((failed+1))
-                  fi
-                done
-                if [ $failed != 0 ]; then
-                  exit 1
+  config = let
+    runnableCheck = validation: {
+      program,
+      items,
+    }:
+      if items == null
+      then program
+      else if items == []
+      then
+        # This auto-succeeds & is special-cased so shellcheck doesn't complain
+        # about single-quoted arguments (yes, it's silly).
+        ":"
+      else
+        lib.getExe (
+          pkgs.writeShellApplication {
+            name = "check-${validation}";
+            text = ''
+              declare -i failed=0
+              # shellcheck disable=SC2043
+              for item in ${lib.escapeShellArgs items} ; do
+                if ! ${program} "$item"; then
+                  failed=$((failed+1))
                 fi
-              '';
-            }
-          );
-
-      writeOneCheckScript = validation: {
-        enable,
-        check,
-        failureMessage,
-        successMessage,
-      }:
-        if enable
-        then ''
-          echo ":: Running preroll-safety check ${validation}..."
-          check__${validation}() {
-            set -eu
-            ${runnableCheck validation check}
+              done
+              if [ $failed != 0 ]; then
+                exit 1
+              fi
+            '';
           }
-          if ! check__${validation} ; then
-            echo ${lib.escapeShellArg failureMessage} >&2
-            failed=$((failed+1))
-          else
-            ${
-            if successMessage != null
-            then "echo ${lib.escapeShellArg successMessage} >&2"
-            else ":"
-          }
-          fi
-        ''
-        else "";
+        );
 
-      checkScript = pkgs.writeShellApplication {
-        name = cfg.scriptBaseName;
-        text = ''
-          declare -i failed=0
-          ${lib.concatStringsSep "\n\n" (lib.mapAttrsToList writeOneCheckScript cfg.checks)}
-          if [ $failed != 0 ]; then
-            echo "Pre-activation validations failed - it is not safe to activate this closure!"
-            exit 1
+    writeOneCheckScript = validation: {
+      enable,
+      check,
+      failureMessage,
+      successMessage,
+    }:
+      if enable
+      then ''
+        echo ":: Running preroll-safety check ${validation}..."
+        check__${validation}() {
+          set -eu
+          ${runnableCheck validation check}
+        }
+        if ! check__${validation} ; then
+          echo ${lib.escapeShellArg failureMessage} >&2
+          failed=$((failed+1))
+        else
+          ${
+          if successMessage != null
+          then "echo ${lib.escapeShellArg successMessage} >&2"
+          else ":"
+        }
+        fi
+      ''
+      else "";
+
+    checkScript = pkgs.writeShellApplication {
+      name = cfg.systemClosureScript.scriptBaseName;
+      text = ''
+        declare -i failed=0
+        ${lib.concatStringsSep "\n\n" (lib.mapAttrsToList writeOneCheckScript cfg.checks)}
+        if [ $failed != 0 ]; then
+          echo "Pre-activation validations failed - it is not safe to activate this closure!"
+          exit 1
+        fi
+      '';
+    };
+  in
+    lib.mkMerge [
+      (lib.mkIf cfg.systemClosureScript.enable {
+        system.${cfg.systemClosureScript.systemBuilderCommandAttribute} = ''
+          echo ":: Writing preroll-safety check program ${cfg.systemClosureScript.scriptBaseName}"
+          ln -sf ${lib.getExe checkScript} $out/${cfg.systemClosureScript.scriptBaseName}
+        '';
+      })
+      (lib.mkIf cfg.preSwitchChecks.enable {
+        system.preSwitchChecks.${cfg.preSwitchChecks.attrName} = ''
+          if [ "$2" = "test" ]; then
+            ${lib.getExe checkScript}
           fi
         '';
-      };
-    in {
-      system.${cfg.systemBuilderCommandAttribute} = ''
-        echo ":: Writing preroll-safety check program ${cfg.scriptBaseName}"
-        ln -sf ${lib.getExe checkScript} $out/${cfg.scriptBaseName}
-      '';
-    }
-  );
+      })
+    ];
 }
