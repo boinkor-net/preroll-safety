@@ -4,7 +4,7 @@
   nixosModule,
 }:
 nixos-lib.runTest {
-  name = "custom";
+  name = "switch-to-configuration";
   hostPkgs = pkgs;
   nodes.machine = {
     pkgs,
