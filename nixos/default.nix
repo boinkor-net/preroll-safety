@@ -174,9 +174,9 @@ in {
                     ;;
                 esac
 
-                ${writeOneCheckScript name check} "$@"
+                ${writeOneCheckScript name check}
               '';
-            })}
+            })} "$@"
           '';
         in {
           system.preSwitchChecks = builtins.mapAttrs preSwitchCheck (
