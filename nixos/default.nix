@@ -162,16 +162,21 @@ in {
       (lib.mkIf cfg.preSwitchChecks.enable (
         let
           preSwitchCheck = name: check: ''
-            case "$2" in
-              ${lib.concatStringsSep "|" check.runOn})
-                ;;
-              *)
-                echo "Skipping pre-switch check ${name}, as $2 is not one of ${lib.concatStringsSep " or " check.runOn}" >&2
-                exit 0
-                ;;
-            esac
+            ${lib.getExe (pkgs.writeShellApplication {
+              name = "pre-switch-check-${name}";
+              text = ''
+                case "$2" in
+                  ${lib.concatStringsSep "|" check.runOn})
+                    ;;
+                  *)
+                    echo "Skipping pre-switch check ${name}, as $2 is not one of ${lib.concatStringsSep " or " check.runOn}" >&2
+                    exit 0
+                    ;;
+                esac
 
-            ${writeOneCheckScript name check}
+                ${writeOneCheckScript name check}
+              '';
+            })}
           '';
         in {
           system.preSwitchChecks = builtins.mapAttrs preSwitchCheck (
