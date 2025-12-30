@@ -174,7 +174,7 @@ in {
                     ;;
                 esac
 
-                ${writeOneCheckScript name check}
+                ${writeOneCheckScript name check} "$@"
               '';
             })}
           '';
