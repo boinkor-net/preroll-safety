@@ -8,11 +8,11 @@ The NixOS module in this repo is meant to help you avoid those situations!
 
 ## How it works
 
-Since a nixos system configuration possibly gets "built" somewhere other than the machine it runs on (and even if it's built on the same machine, it's in a sandbox), we can not rely on the build process to find all the issues.
+As a nixos system configuration possibly gets "built" somewhere other than the machine it runs on (and even if it's built on the same machine, it's in a sandbox and can not make accurate predictions about the destination system state), we can not rely on the build process to find all possible issues.
 
-Instead, this module writes an additional script into the system config closure's "out" directory, which just sits there most times (it's named `pre-activate-safety-checks` by default). This script is ignored and not used at all by `nixos-rebuild`, however.
+However, as of November 2024, NixOS ships an option called [`system.preSwitchChecks`](https://search.nixos.org/options?channel=unstable&show=system.preSwitchChecks&query=preSwitchChecks), which allows registering checks that run before the system gets live-activated (or a variety of other conditions, see the [`switch-to-configuration`](https://github.com/NixOS/nixpkgs/blob/39070b6fa9efe06ae1ea43cc034e436ae5366d44/pkgs/by-name/sw/switch-to-configuration-ng/src/src/main.rs#L99-L107) script for details).
 
-But! If you're using a safety-aware deploy tool (e.g. [deploy-flake](https://github.com/boinkor-net/deploy-flake) by the author), you can instruct it to run the safety check program before activating your system; if that exits with a non-0 status, your tool knows that the system configuration isn't safe to apply and can exit before your machine drops off the network.
+So this module presents a friendly structured front-end for these pre-switch checks, and adds a few "stock" checks (for mountability of block-device based and zfs file systems).
 
 ## Using it
 
@@ -34,7 +34,7 @@ But! If you're using a safety-aware deploy tool (e.g. [deploy-flake](https://git
    ```
 3. Enable writing the safety script, in your system config:
    ```nix
-   preroll-safety.enable = true;
+   preroll-safety.preSwitchChecks.enable = true;
    ```
 
-The repo comes with a few [pre-defined checks](./nixos/safety-checks). You can define your own, too. See those checks for examples! There are some nixos-vm based [tests](./tests) also.
+As mentioned, this repo comes with a few [pre-defined checks](./nixos/safety-checks). You can define your own, too. See those checks for examples! There are some nixos-vm based [tests](./tests) also.
