@@ -30,6 +30,12 @@ in {
         type = lib.types.bool;
       };
 
+      runOn = lib.mkOption {
+        description = "Only run the check when the given `switch-to-configuration` argument is given";
+        default = ["check" "switch" "test"];
+        type = lib.types.listOf (lib.types.enum ["check" "switch" "test" "dry-activate" "boot"]);
+      };
+
       check = lib.mkOption {
         description = "Program that will be invoked to perform the check";
         type = lib.types.submodule checkProgramSubmodule;
@@ -50,12 +56,6 @@ in {
   in {
     preSwitchChecks = {
       enable = lib.mkEnableOption "adding the preroll safety checks to system.preSwitchChecks";
-
-      attrName = lib.mkOption {
-        description = "Name of the system.preSwitchChecks attribute";
-        default = "preroll-safety";
-        type = lib.types.str;
-      };
     };
 
     systemClosureScript = {
@@ -124,6 +124,7 @@ in {
       check,
       failureMessage,
       successMessage,
+      ...
     }:
       if enable
       then ''
@@ -158,17 +159,30 @@ in {
     };
   in
     lib.mkMerge [
+      (lib.mkIf cfg.preSwitchChecks.enable (
+        let
+          preSwitchCheck = name: check: ''
+            case "$2" in
+              ${lib.concatStringsSep "|" check.runOn})
+                ;;
+              *)
+                echo "Skipping pre-switch check ${name}, as $2 is not one of ${lib.concatStringsSep " or " check.runOn}" >&2
+                exit 0
+                ;;
+            esac
+
+            ${writeOneCheckScript name check}
+          '';
+        in {
+          system.preSwitchChecks = builtins.mapAttrs preSwitchCheck (
+            lib.filterAttrs (_: {enable, ...}: enable) cfg.checks
+          );
+        }
+      ))
       (lib.mkIf cfg.systemClosureScript.enable {
         system.${cfg.systemClosureScript.systemBuilderCommandAttribute} = ''
           echo ":: Writing preroll-safety check program ${cfg.systemClosureScript.scriptBaseName}"
           ln -sf ${lib.getExe checkScript} $out/${cfg.systemClosureScript.scriptBaseName}
-        '';
-      })
-      (lib.mkIf cfg.preSwitchChecks.enable {
-        system.preSwitchChecks.${cfg.preSwitchChecks.attrName} = ''
-          if [ "$2" = "test" ]; then
-            ${lib.getExe checkScript}
-          fi
         '';
       })
     ];
