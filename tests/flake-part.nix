@@ -30,6 +30,7 @@
           (importTests "custom")
           (importTests "filesystems")
           (importTests "zfs")
+          (importTests "switch-to-configuration")
         ];
   };
 }

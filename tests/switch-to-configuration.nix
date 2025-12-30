@@ -15,11 +15,12 @@ nixos-lib.runTest {
       nixosModule
     ];
     config = {
-      preroll-safety.systemClosureScript.enable = true;
+      preroll-safety.preSwitchChecks.enable = true;
       preroll-safety.stockChecks.enable = false;
       preroll-safety.checks.custom = {
         failureMessage = "Custom check failed";
         successMessage = "Custom check succeeded";
+        runOn = ["check" "switch" "test" "boot"];
         check.program = lib.getExe (
           pkgs.writeShellApplication {
             name = "custom-check";
@@ -29,6 +30,7 @@ nixos-lib.runTest {
           }
         );
       };
+      system.switch.enable = true;
 
       virtualisation = {
         cores = 2;
@@ -37,14 +39,21 @@ nixos-lib.runTest {
     };
   };
 
-  testScript = ''
+  testScript = {nodes, ...}: let
+    machineSystem = nodes.machine.system.build.toplevel;
+  in ''
     machine.start()
     machine.succeed("udevadm settle")
     machine.wait_for_unit("multi-user.target")
     with subtest("Custom check is ok"):
-        machine.succeed("/run/current-system/pre-activate-safety-checks")
+        machine.succeed("${machineSystem}/bin/switch-to-configuration check")
     with subtest("Custom check can be made to fail"):
         machine.succeed("touch /run/custom-check-failure")
-        machine.fail("/run/current-system/pre-activate-safety-checks")
+        machine.fail("${machineSystem}/bin/switch-to-configuration check")
+        machine.fail("${machineSystem}/bin/switch-to-configuration test")
+        machine.fail("${machineSystem}/bin/switch-to-configuration switch")
+        machine.fail("${machineSystem}/bin/switch-to-configuration boot")
+        # But the check doesn't run on "boot", so this should succeed:
+        machine.succeed("${machineSystem}/bin/switch-to-configuration dry-activate")
   '';
 }
